@@ -1,5 +1,8 @@
 import csv
 import datetime
+import pandas as pd
+from random import randint
+from typing import List 
 
 
 class DataReader():
@@ -8,50 +11,59 @@ class DataReader():
 
         self.name = data_csv.strip('.csv').split('/')[1]
 
-        with open(data_csv, newline='\n') as csvfile:
-            spamreader = csv.reader(csvfile, delimiter=',')
-            self.data = []
-            i = 0
-            for row in spamreader:
-                if i == 0:
-                    i += 1
-                    continue
-                else:
-                    line = []
-                    d = row[0].split('-')
-                    line.append(datetime.datetime(int(d[0]), int(d[1]), int(d[2])))
-                    for i in range(1, len(row)):
-                        try:
-                            line.append(float(row[i]))
-                        except:
-                            line.append(0)
-
-
-                    self.data.append(line)
+        self.data = pd.read_csv(data_csv)
                 
     def __str__(self):
-        str = ''
-        for row in self.data:
-            str += f'Date: {row[0]} | Open: {round(row[1],1)} | High: {round(row[2],1)} | Low: {round(row[3],1)} | Close: {round(row[4],1)} | Adj Close: {round(row[5],1)} | Volume: {round(row[6])}\n'
-        return str
+        return f"--- Data of {self.name} stock ---\n{str(self.data)}"
+        
+    def adj_close(self, start_date, end_date: str):
+        if start_date != None:
+            start_date = pd.to_datetime(start_date)
+        else:
+            start_date = pd.to_datetime('1900-01-01')
+        
+        if end_date != None:
+            end_date = pd.to_datetime(end_date)
+        else:
+            end_date = pd.to_datetime('2100-01-01')
+        
+        filtered_data = self.data[(pd.to_datetime(self.data['Date']) > start_date) & (pd.to_datetime(self.data['Date']) < end_date)][['Date','Adj Close']]
+        return filtered_data
 
-    def avarage_close(self):
-        sum = 0
-        for row in self.data:
-            sum += row[4]
+class Portfolio():
 
-        return sum / len(self.data)
-    
-    def avarage_volume(self):
-        sum = 0
-        for row in self.data:
-            sum += row[6]
+    def __init__(self, start_value: int, stocks: List[str]):
+        self.start_value = start_value
+        self.element = pf = pd.DataFrame({'Date': []})
 
-        return sum / len(self.data)
-    
+    def __string__(self):
+        return self.element
+
+    def evaluate():
+        pass
 
 if __name__ == '__main__':
-    d = DataReader('archive/ALL.csv')
-    print(d.avarage_close())
-    print(d.avarage_volume())
-    print(d)
+    a = DataReader('archive/ALL.csv')
+    b = DataReader('archive/A2M.csv')
+
+    d = a.adj_close('2016-01-01', '2018-01-01')['Date']
+    dd = a.adj_close('2016-01-01', '2018-01-01')
+
+    pf = pd.DataFrame({'Date': d,
+                       'ALL': [randint(0,1) for i in range(len(d))],
+                       'A2M': [randint(0,1) for i in range(len(d))],
+                       })
+    temp_amount = 0
+
+    money = 1000
+    
+    for day in d:
+        temp_pick = float(pf.loc[pf['Date'] == day]['ALL'].iloc[0])
+        temp_price = float(dd.loc[dd['Date'] == day]["Adj Close"].iloc[0])
+        money += (temp_amount - temp_pick) * temp_price
+        temp_amount = temp_pick
+
+    print(money)
+
+    
+    
