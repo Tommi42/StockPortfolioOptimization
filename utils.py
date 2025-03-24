@@ -2,21 +2,15 @@ import csv
 import datetime
 import pandas as pd
 from random import randint
-from typing import List 
+import random
+from typing import List
 
-import os
-
-
-class DataReader():
-
+class DataReader:
     def __init__(self, data_csv, start_date, end_date):
-
         self.name = data_csv.strip('.csv').split('/')[1]
         self.data = pd.read_csv(data_csv)
-
         self.start_date = start_date
         self.end_date = end_date
-
         self.filtered_data = None
         self.bool_filtered_data = False
                 
@@ -24,115 +18,107 @@ class DataReader():
         return f"--- Data of {self.name} stock ---\n{str(self.data)}"
         
     def get_adj_close(self):
-
-        if self.bool_filtered_data == False:
+        if not self.bool_filtered_data:
             self.bool_filtered_data = True
-            
-            start_date = self.start_date
-            end_date = self.end_date
-
-            if start_date != None:
-                start_date = pd.to_datetime(start_date)
-            else:
-                start_date = pd.to_datetime('1900-01-01')
-            
-            if end_date != None:
-                end_date = pd.to_datetime(end_date)
-            else:
-                end_date = pd.to_datetime('2100-01-01')
-            
+            start_date = pd.to_datetime(self.start_date) if self.start_date else pd.to_datetime('1900-01-01')
+            end_date = pd.to_datetime(self.end_date) if self.end_date else pd.to_datetime('2100-01-01')
             try:
-                self.filtered_data = self.data[(pd.to_datetime(self.data['Date']) > start_date) & (pd.to_datetime(self.data['Date']) < end_date)][['Date','Adj Close']]
+                self.filtered_data = self.data[(pd.to_datetime(self.data['Date']) > start_date) & 
+                                               (pd.to_datetime(self.data['Date']) < end_date)][['Date', 'Adj Close']]
             except Exception as e:
                 print("Error with timespan. Probably not all stock selected have data for the selected timespan")
                 print(f"{e}")
-
         return self.filtered_data
 
-class Portfolio():
-
+class Portfolio:
     def __init__(self, start_value: int, stocks: List[str], start_date, end_date):
-        
         self.start_value = start_value
-
         self.stockData = {stock: DataReader(f"./archive/{stock}.csv", start_date, end_date) for stock in stocks}
-
+        self.num_day = len(self.stockData[stocks[0]].get_adj_close()['Date'])
         self.time_span = pd.DataFrame({"Date": self.stockData[stocks[0]].get_adj_close()['Date']})
-
-        pf = pd.DataFrame({ stock: [randint(1,100) for i in range(len(self.stockData[stocks[0]].get_adj_close()['Date']))] for stock in stocks})
+        self.pf = self._generate_random_pf(stocks)
     
-        temp_sum = pf.sum(axis=1)
+    def _generate_random_pf(self, stocks):
+        pf = pd.DataFrame({stock: [randint(1, 100) for _ in range(self.num_day)] for stock in stocks})
+        return pf.div(pf.sum(axis=1), axis=0)
 
-        self.pf = pf.div(temp_sum, axis=0)
-
-    def __string__(self):
-        return self.element
-
-    def evaluate(self):
+    def evaluate_pf(self, pf):
         money = self.start_value
         old_day = self.time_span['Date'].iloc[0]
-        old_i = 0
-       
         array_money = [money]
-
-        for (i, day)  in enumerate(self.time_span['Date'][1:]):
+        
+        for i, day in enumerate(self.time_span['Date'][1:], start=1):
             new_money = 0
-            i += 1
             for stock in self.stockData:
-
-                # Money of stock owned from the day [-1]
-                money_stock_owned = self.pf[stock][old_i] * money # Here money are still the Old ammount
-
+                money_stock_owned = pf[stock][i-1] * money
                 old_stock_price = float(self.stockData[stock].get_adj_close().loc[self.stockData[stock].get_adj_close()['Date'] == old_day]['Adj Close'].iloc[0])
-
                 stock_owned = money_stock_owned / old_stock_price
-                
-                # Stock price at day [i] from previus day
                 current_stock_price = float(self.stockData[stock].get_adj_close().loc[self.stockData[stock].get_adj_close()['Date'] == day]['Adj Close'].iloc[0])
-
-                new_money += (current_stock_price * stock_owned)
-
+                new_money += current_stock_price * stock_owned
             money = new_money
             array_money.append(money)
-            old_i = i
             old_day = day
-
-        return pd.DataFrame({'Money': array_money})
-
-            # relative_temp_stock = float(self.pf.loc[self.pf['Date'] == day][stock].iloc[0]) # Stock % that day
-            # money_temp_stock = relative_temp_stock * money # Actual ammount of money invested in that stock
-            # temp_stock = money_temp_stock * # Actual ammount of stock owned ad day [current]
-
-            # temp_price = float(dd.loc[dd['Date'] == day]["Adj Close"].iloc[0]) 
-            # money += (temp_amount - temp_pick) * temp_price
-            # temp_stock_old = temp_pick
-
         return money
 
-    def get_stocks(self):
-        return [stock for stock in self.stockData]
+class GeneticAlgorithm:
+    def __init__(self, portfolio: Portfolio):
+        self.portfolio = portfolio
+    
+    def evolve_population(self, population, k_genetic_mutation, k_modified_elephant, k_crossover):
+        new_population = []
+        for _ in range(len(population) // 2):
+            if random.random() < k_crossover:
+                parent1, parent2 = random.sample(population, 2)
+                child = parent1.copy()
+                for day in child.index:
+                    if random.random() < 0.5:
+                        child.loc[day] = parent2.loc[day]
+                new_population.append(child)
+        
+        for elephant in population:
+            if random.random() < k_modified_elephant:
+                baby_elephant = elephant.copy()
+                for day in baby_elephant.index:
+                    if random.random() < k_genetic_mutation:
+                        baby_elephant.loc[day] = [random.randint(1, 100) for _ in baby_elephant.columns]
+                        baby_elephant.loc[day] /= baby_elephant.loc[day].sum()
+                new_population.append(baby_elephant)
+        return new_population
 
-    def get_portfolio(self):
-        return self.pf
+    def filter_population(self, scored_population, num_best):
+        max_value = max(ele[1] for ele in scored_population)
+        min_value = min(ele[1] for ele in scored_population)
+        normalized_scores = [
+            (idx, ele[0], ele[1], ele[2]/100 * (ele[1] - min_value) / (max_value - min_value))
+            if max_value != min_value else (idx, ele[0], ele[1], 1)
+            for idx, ele in enumerate(scored_population)
+        ]
+        normalized_scores.sort(key=lambda x: x[2], reverse=True)
+        selected_population = []
+        selected_indices = set()
+        while len(selected_population) < num_best and len(selected_indices) < len(normalized_scores):
+            selected = random.choices(normalized_scores, weights=[ele[3] for ele in normalized_scores], k=1)[0]
+            if selected[0] not in selected_indices:
+                selected_population.append((selected[1], selected[2]))
+                selected_indices.add(selected[0])
+        return [(elephant, fitness, randint(50, 100)) for elephant, fitness in selected_population]
 
-    def get_portfolio_sampled(self, N):
-        pf = self.pf
-        if len(pf) > N:
-            df_sampled = pf.iloc[::len(pf)//N][:N]  # Passo regolare e limitazione a N righe
-        else:
-            df_sampled = pf
-
-        return df_sampled
-
-    def hill_climbin(self):
-        pass
+    def run(self, num_initial_population, k_genetic_mutation, k_modified_elephant, k_crossover, loop_num):
+        population = [self.portfolio._generate_random_pf(self.portfolio.stockData.keys()) for _ in range(num_initial_population)]
+        scored_population = [[elephant, self.portfolio.evaluate_pf(elephant), randint(50, 100)] for elephant in population]
+        
+        for _ in range(loop_num):
+            new_population = self.evolve_population(population, k_genetic_mutation, k_modified_elephant, k_crossover)
+            scored_new_population = [[elephant, self.portfolio.evaluate_pf(elephant), randint(50, 100)] for elephant in new_population]
+            scored_population.extend(scored_new_population)
+            scored_population = self.filter_population(scored_population, num_initial_population)
+            population = [elephant for elephant, _, _ in scored_population]
+            print("Best portfolio value:", max(scored_population, key=lambda x: x[1])[1])
+            print("=====================================")
+        return None
 
 if __name__ == '__main__':
-    p = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
-    print(p.evaluate())
-    print(p.pf)
-
-
-   
-    
-    
+    portfolio = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
+    ga = GeneticAlgorithm(portfolio)
+    ga.run(30, 0.3, 0.9, 0.5, 20)
+    print("Finito!")
