@@ -8,8 +8,6 @@ import os
 
 
 class DataReader():
-
-class DataReader:
     def __init__(self, data_csv, start_date, end_date):
         self.name = data_csv.strip('.csv').split('/')[1]
         self.data = pd.read_csv(data_csv)
