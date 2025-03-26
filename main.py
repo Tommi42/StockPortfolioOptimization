@@ -2,36 +2,39 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from utils import Portfolio, SimulatedAnnealing, GeneticAlgorithm
+from utils import Portfolio, SimulatedAnnealing, GeneticAlgorithm, HillClimbing
+
 import datetime
 import altair as alt
 
 class DataView():
-
     def __init__(self, portfolio_type):
-
         with st.container():
             st.header(f"Stock simulation")
 
-            col1, col2 = st.columns(2)
+            col1, col2, col3, col4 = st.columns(4)  # Define 4 columns for all portfolio types
 
-            # Portfolio total money value over time
+            # Select the correct portfolio object based on the type
             if portfolio_type == "Random":
-                value = st.session_state['portfolio'].evaluate()[-1]
-                col1.metric("Random Portfolio", f"{value:.2f}")
+                portfolio = st.session_state['portfolio']
             elif portfolio_type == "Simulated Annealing":
-                value = st.session_state['sa_portfolio'].evaluate()
-                col2.metric("Simulated Annealing", f"{value:.2f}")
-            else:
-                value = st.session_state['portfolio'].evaluate()[-1]
-                col1.metric("Genetic Portfolio", f"{value:.2f}")
+                portfolio = st.session_state['sa_portfolio']
+            elif portfolio_type == "Hill Climbing":
+                portfolio = st.session_state['hc_portfolio']
+            else:  # Default to Genetic Algorithm
+                portfolio = st.session_state['ga_portfolio']
+
+            # ✅ Add this check before calling .evaluate()
+            if portfolio is None:
+                st.error(f"{portfolio_type} portfolio is not initialized. Run the algorithm first.")
+                return
 
 
-            portfolio = st.session_state['portfolio']
+            # Get money over time and daily stock allocations
             money_chart_data = portfolio.evaluate()
             daily_allocations = portfolio.get_daily_allocations()
 
-            # **Fix: Ensure "Date" is properly included**
+            # Merge data properly
             merged_data = daily_allocations.copy()
             merged_data["Money"] = money_chart_data
             merged_data["Date"] = portfolio.time_span["Date"].values  # Ensure Date is added correctly
@@ -68,6 +71,13 @@ if 'portfolio' not in st.session_state:
 if 'availableStocks' not in st.session_state:
     st.session_state['availableStocks'] = [file.strip('.csv') for file in os.listdir("./archive")]
 
+if 'ga_portfolio' not in st.session_state:
+    st.session_state['ga_portfolio'] = None  # Initialize it properly
+
+if 'hc_portfolio' not in st.session_state:
+    st.session_state['hc_portfolio'] = None  # Initialize it
+
+
 st.title("Stock Portfolio Optimization")
 
 c1, c2 = st.columns([5, 5])
@@ -83,7 +93,7 @@ with c1:
         start_date = col1.date_input("Starting date", datetime.date(2016, 1, 1))
         end_date = col2.date_input("End date", datetime.date(2016, 7, 28))
 
-        portfolio_type = st.radio("Optimization Type", ["Random", "Simulated Annealing", "Genetic Algorithm"])
+        portfolio_type = st.radio("Optimization Type", ["Random", "Simulated Annealing", "Genetic Algorithm", "Hill Climbing"])
 
         if portfolio_type == 'Genetic Algorithm':
             
@@ -107,7 +117,9 @@ with c1:
                     st.session_state['sa_portfolio'].pf = best_pf  # ✅ Ensure SA portfolio is updated
 
                 elif portfolio_type == "Genetic Algorithm":
-
+                    st.session_state['ga_portfolio'] = Portfolio(
+                        1000, selected_stocks, start_date=start_date, end_date=end_date)
+        
                     ga = GeneticAlgorithm(st.session_state['portfolio'])
 
                     progress_text = "Operation in progress. Please wait."
@@ -116,7 +128,7 @@ with c1:
                     temp_best = ga.run(num_population, 0.7, 0.9, 0.5, num_generation)
                     percent_complete = 0
                     with c2:
-                        print("Starting")
+                        print("Starting Genetic Algorithm")
                         with st.empty():
                             for result in temp_best:
                                 percent_complete = percent_complete + (1/num_generation)
@@ -124,5 +136,18 @@ with c1:
                                 st.session_state['portfolio'].pf = result
                                 # Update the chart with the new result (without re-creating the whole DataView)
                                 DataView(portfolio_type)  # Show the final portfolio data view
+
+                elif portfolio_type == "Hill Climbing":
+                    st.session_state['hc_portfolio'] = Portfolio(
+                        1000, selected_stocks, start_date=start_date, end_date=end_date
+                    )
+
+                    hc = HillClimbing(st.session_state['hc_portfolio'])
+                    best_pf, _ = hc.optimize()
+                    st.session_state['hc_portfolio'].pf = best_pf  # ✅ Update HC portfolio
+
+                    DataView(portfolio_type)  # ✅ Show the graph!
+
+
 
                 st.success("Portfolio updated successfully")

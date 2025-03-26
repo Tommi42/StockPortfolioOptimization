@@ -8,8 +8,7 @@ import numpy as np
 import random
 import os
 
-
-class DataReader:
+class DataReader():
     def __init__(self, data_csv, start_date, end_date):
         self.name = data_csv.strip('.csv').split('/')[1]
         self.data = pd.read_csv(data_csv)
@@ -233,7 +232,39 @@ class SimulatedAnnealing:
 
         return best_pf, best_score
 
+class HillClimbing:
+    def __init__(self, portfolio, iterations=1000, step_size=0.3):
+        self.portfolio = portfolio  # Portfolio object
+        self.iterations = iterations  # Number of optimization steps
+        self.step_size = step_size  # Max % change in stock allocation
 
+    def optimize(self):
+        """Optimize portfolio using Hill Climbing."""
+        current_pf = self.portfolio.pf.copy()  # Start with the current allocation
+        current_eval = self.portfolio.evaluate_pf(current_pf)  # Evaluate initial money
+        best_pf, best_eval = current_pf, current_eval
+
+        for _ in range(self.iterations):
+            new_pf = self.modify_allocation(current_pf)  # Generate new allocation
+            new_eval = self.portfolio.evaluate_pf(new_pf)  # Evaluate new portfolio
+
+            if new_eval > best_eval:  # Keep the new allocation only if it's better
+                best_pf, best_eval = new_pf, new_eval
+                current_pf = new_pf  # Continue optimizing from the new best
+
+        self.portfolio.pf = best_pf  # Update portfolio with best allocation
+        return best_pf, best_eval
+
+    def modify_allocation(self, allocation):
+        """Modify allocation slightly."""
+        new_allocation = allocation.copy()
+        stock = np.random.choice(list(new_allocation.columns))  # Pick a random stock
+        change = np.random.uniform(-self.step_size, self.step_size)  # Change allocation by ± step_size
+        
+        new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
+        new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)  # Normalize
+        return new_allocation
+    
 if __name__ == '__main__':
     p_random = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
     print(p_random.pf)
@@ -278,9 +309,3 @@ if __name__ == '__main__':
     print(f"Final Value: {best_score:.2f}")
     print(best_pf)"
     """
-
-
-
-   
-    
-    
