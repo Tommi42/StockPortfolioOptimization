@@ -4,10 +4,16 @@ import pandas as pd
 from random import randint
 from typing import List 
 import matplotlib.pyplot as plt
+import numpy as np
+import random
 import os
 
 
+<<<<<<< HEAD
 class DataReader():
+=======
+class DataReader:
+>>>>>>> 9c3cde29f0470a795f078f429be89b4c13315c85
     def __init__(self, data_csv, start_date, end_date):
         self.name = data_csv.strip('.csv').split('/')[1]
         self.data = pd.read_csv(data_csv)
