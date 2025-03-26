@@ -4,10 +4,10 @@ import pandas as pd
 from random import randint
 from typing import List 
 import matplotlib.pyplot as plt
+import numpy as np
+import random
 import os
 
-
-class DataReader():
 
 class DataReader:
     def __init__(self, data_csv, start_date, end_date):
@@ -35,9 +35,11 @@ class DataReader:
         return self.filtered_data
 
 class Portfolio:
+
     def __init__(self, start_value: int, stocks: List[str], start_date, end_date):
         self.start_value = start_value
         self.stockData = {stock: DataReader(f"./archive/{stock}.csv", start_date, end_date) for stock in stocks}
+        self.num_day = len(self.stockData[stocks[0]].get_adj_close()['Date'])
         self.time_span = pd.DataFrame({"Date": self.stockData[stocks[0]].get_adj_close()['Date']})
 
         # Initialize stock weights randomly
@@ -57,6 +59,28 @@ class Portfolio:
         return self.element
 
     def evaluate(self):
+        money = self.start_value
+        old_day = self.time_span['Date'].iloc[0]
+        array_money = [money]
+        
+        for i, day in enumerate(self.time_span['Date'][1:], start=1):
+            new_money = 0
+            for stock in self.stockData:
+                money_stock_owned = self.pf[stock][i-1] * money
+                old_stock_price = float(self.stockData[stock].get_adj_close().loc[self.stockData[stock].get_adj_close()['Date'] == old_day]['Adj Close'].iloc[0])
+                stock_owned = money_stock_owned / old_stock_price
+                current_stock_price = float(self.stockData[stock].get_adj_close().loc[self.stockData[stock].get_adj_close()['Date'] == day]['Adj Close'].iloc[0])
+                new_money += current_stock_price * stock_owned
+            money = new_money
+            array_money.append(money)
+            old_day = day
+        return array_money
+
+    def _generate_random_pf(self, stocks):
+        pf = pd.DataFrame({stock: [randint(1, 100) for _ in range(self.num_day)] for stock in stocks})
+        return pf.div(pf.sum(axis=1), axis=0)
+
+    def evaluate_pf(self, pf):
         money = self.start_value
         old_day = self.time_span['Date'].iloc[0]
         array_money = [money]
@@ -129,12 +153,9 @@ class GeneticAlgorithm:
             population = [elephant for elephant, _, _ in scored_population]
             print("Best portfolio value:", max(scored_population, key=lambda x: x[1])[1])
             print("=====================================")
-        return None
-
-
-
-import numpy as np
-
+            self.portfolio.pf = max(scored_population, key=lambda x: x[1])[0]
+            yield max(scored_population, key=lambda x: x[1])[0]
+    
 class SimulatedAnnealing:
 
     def __init__(self, portfolio, initial_temp=100, cooling_rate=0.99, max_iter=1000):
@@ -205,12 +226,21 @@ class SimulatedAnnealing:
         return best_pf, best_score
 
 
-
-
 if __name__ == '__main__':
     p_random = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
+    print(p_random.pf)
+    print(p_random.evaluate())
     p_sa = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
-    
+
+    ga = GeneticAlgorithm(p_random)
+    temp_best = ga.run(30, 0.3, 0.9, 0.5, 20)
+    print("Finito!")
+
+    print(p_random.pf)
+    print(p_random.evaluate())
+
+
+    """
     # Rastgele portföy değeri
     random_value = p_random.evaluate()
 
@@ -238,7 +268,8 @@ if __name__ == '__main__':
 
     print("\n--- Simulated Annealing (Optimized Portfolio) ---")
     print(f"Final Value: {best_score:.2f}")
-    print(best_pf)
+    print(best_pf)"
+    """
 
 
 
