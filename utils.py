@@ -125,19 +125,28 @@ class GeneticAlgorithm:
     def filter_population(self, scored_population, num_best):
         max_value = max(ele[1] for ele in scored_population)
         min_value = min(ele[1] for ele in scored_population)
+        
+        # Normalizzazione dei punteggi
         normalized_scores = [
-            (idx, ele[0], ele[1], ele[2]/100 * (ele[1] - min_value) / (max_value - min_value))
+            (idx, ele[0], ele[1], ele[2]/100 * ((ele[1] * ele[1]) - min_value) / (max_value - min_value))
             if max_value != min_value else (idx, ele[0], ele[1], 1)
             for idx, ele in enumerate(scored_population)
         ]
+        
+        # Ordinamento per fitness decrescente
         normalized_scores.sort(key=lambda x: x[2], reverse=True)
-        selected_population = []
-        selected_indices = set()
+        
+        # Selezione sicura dei primi 3
+        selected_population = [(ele[1], ele[2]) for ele in normalized_scores[:3]]
+        selected_indices = set(ele[0] for ele in normalized_scores[:3])
+        
+        # Selezione probabilistica per il resto
         while len(selected_population) < num_best and len(selected_indices) < len(normalized_scores):
             selected = random.choices(normalized_scores, weights=[ele[3] for ele in normalized_scores], k=1)[0]
             if selected[0] not in selected_indices:
                 selected_population.append((selected[1], selected[2]))
                 selected_indices.add(selected[0])
+        
         return [(elephant, fitness, randint(50, 100)) for elephant, fitness in selected_population]
 
     def run(self, num_initial_population, k_genetic_mutation, k_modified_elephant, k_crossover, loop_num):
@@ -185,7 +194,6 @@ class SimulatedAnnealing:
         new_pf = new_pf.div(new_pf.sum(axis=1), axis=0)
 
         return new_pf
-
 
     def optimize(self):
         """
