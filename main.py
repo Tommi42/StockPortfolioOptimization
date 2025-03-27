@@ -29,10 +29,13 @@ class DataView():
                 st.error(f"{portfolio_type} portfolio is not initialized. Run the algorithm first.")
                 return
 
-
             # Get money over time and daily stock allocations
             money_chart_data = portfolio.evaluate()
             daily_allocations = portfolio.get_daily_allocations()
+
+            # Display the final portfolio value as a metric
+            final_value = money_chart_data[-1]
+            st.metric(label="Final Portfolio Value", value=f"${final_value:,.2f}", delta = f"{(final_value - 1000):,.2f}")
 
             # Merge data properly
             merged_data = daily_allocations.copy()
@@ -50,7 +53,7 @@ class DataView():
             # **📈 Money Line Chart with Date & Stock Percentages in Tooltip**
             self.money_chart = (
                 alt.Chart(merged_data)
-                .mark_line(color="white", strokeWidth=2)
+                .mark_line(color="red", strokeWidth=2)
                 .encode(
                     x="Day:Q",
                     y="Money:Q",
@@ -63,24 +66,28 @@ class DataView():
             st.altair_chart(self.money_chart, use_container_width=True)
             st.line_chart(portfolio.pf)
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title='AIPort')
+
 
 if 'portfolio' not in st.session_state:
-    st.session_state['portfolio'] = Portfolio(1000, ["ES1"], '2016-01-01', '2016-07-28')
+    st.session_state['portfolio'] = Portfolio(1000, ["ES1"], '2016-02-15', '2016-03-31')
 
 if 'availableStocks' not in st.session_state:
     st.session_state['availableStocks'] = [file.strip('.csv') for file in os.listdir("./archive")]
 
 if 'ga_portfolio' not in st.session_state:
-    st.session_state['ga_portfolio'] = None  # Initialize it properly
+    st.session_state['ga_portfolio'] = st.session_state['portfolio']
 
 if 'hc_portfolio' not in st.session_state:
-    st.session_state['hc_portfolio'] = None  # Initialize it
+    st.session_state['hc_portfolio'] = st.session_state['portfolio'] 
+
+if  'sa_portfolio' not in st.session_state:
+    st.session_state['sa_portfolio'] = st.session_state['portfolio']
 
 
 st.title("Stock Portfolio Optimization")
 
-c1, c2 = st.columns([5, 5])
+c1, c2 = st.columns([2, 5])
 
 with c1:
     with st.container():
@@ -90,17 +97,20 @@ with c1:
             st.session_state['availableStocks'], ["ES1", "ES3"])
         col1, col2 = st.columns([2, 2])
 
-        start_date = col1.date_input("Starting date", datetime.date(2016, 1, 1))
-        end_date = col2.date_input("End date", datetime.date(2016, 7, 28))
+        start_date = col1.date_input("Starting date", datetime.date(2016, 2, 1))
+        end_date = col2.date_input("End date", datetime.date(2016, 6, 1))
 
         portfolio_type = st.radio("Optimization Type", ["Random", "Simulated Annealing", "Genetic Algorithm", "Hill Climbing"])
 
         if portfolio_type == 'Genetic Algorithm':
-            
-            num_population = st.slider("Select the number of stating populationo.", 5, 40)
-            num_generation = st.slider("Select the number of stating populationo.", 10, 60)
+            num_population = st.slider("Select the number of starting population.", 5, 40, 15)
+            num_generation = st.slider("Select the number of generations.", 10, 60, 20)
+            k_genetic_mutation = st.slider("Genetic Mutation Rate", 0.1, 1.0, 0.3)
+            k_modified_elephant = st.slider("Modified Elephant Rate", 0.1, 1.0, 0.9)
+            k_crossover = st.slider("Crossover Rate", 0.1, 1.0, 0.5)
 
         if st.button("Run", type="primary"):
+
             if len(selected_stocks) == 0:
                 st.error("Select at least one stock")
             elif start_date >= end_date:
@@ -120,12 +130,16 @@ with c1:
                     st.session_state['ga_portfolio'] = Portfolio(
                         1000, selected_stocks, start_date=start_date, end_date=end_date)
         
-                    ga = GeneticAlgorithm(st.session_state['portfolio'])
+                    ga = GeneticAlgorithm(
+                        st.session_state['portfolio'],
+                        k_genetic_mutation=k_genetic_mutation,
+                        k_modified_elephant=k_modified_elephant,
+                        k_crossover=k_crossover
+                    )
 
-                    progress_text = "Operation in progress. Please wait."
-                    my_bar = st.progress(0, text=progress_text)
-
-                    temp_best = ga.run(num_population, 0.7, 0.9, 0.5, num_generation)
+                    progress_text = "Working on it... (I'm not Warren Buffett but I'm doing my best)"
+                    with c2: my_bar = st.progress(0, text=progress_text)
+                    temp_best = ga.optimize(num_population, num_generation)
                     percent_complete = 0
                     with c2:
                         print("Starting Genetic Algorithm")
@@ -133,20 +147,24 @@ with c1:
                             for result in temp_best:
                                 percent_complete = percent_complete + (1/num_generation)
                                 my_bar.progress(percent_complete, text=progress_text)
-                                st.session_state['portfolio'].pf = result
-                                # Update the chart with the new result (without re-creating the whole DataView)
-                                DataView(portfolio_type)  # Show the final portfolio data view
+                                st.session_state['ga_portfolio'].pf = result
+                                DataView(portfolio_type)
 
                 elif portfolio_type == "Hill Climbing":
                     st.session_state['hc_portfolio'] = Portfolio(
                         1000, selected_stocks, start_date=start_date, end_date=end_date
                     )
+                    with c2:
+                        with st.spinner("Wait for it..."):
+                            hc = HillClimbing(st.session_state['hc_portfolio'])
+                            best_pf, _ = hc.optimize()
+                            st.session_state['hc_portfolio'].pf = best_pf  # ✅ Update HC portfolio
+                            DataView(portfolio_type)  # ✅ Show the graph!
 
-                    hc = HillClimbing(st.session_state['hc_portfolio'])
-                    best_pf, _ = hc.optimize()
-                    st.session_state['hc_portfolio'].pf = best_pf  # ✅ Update HC portfolio
-
-                    DataView(portfolio_type)  # ✅ Show the graph!
+                elif portfolio_type == "Random":
+                    st.session_state['portfolio'] = Portfolio(1000, selected_stocks, start_date=start_date, end_date=end_date)
+                    with c2 :
+                        DataView(portfolio_type)
 
 
 

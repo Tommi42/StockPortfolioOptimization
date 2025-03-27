@@ -97,14 +97,25 @@ class Portfolio:
             old_day = day
         return money
 
-class GeneticAlgorithm:
-    def __init__(self, portfolio: Portfolio):
+class OptimizationAlgorithm:
+    def __init__(self, portfolio):
         self.portfolio = portfolio
-    
-    def evolve_population(self, population, k_genetic_mutation, k_modified_elephant, k_crossover):
+
+    def optimize(self):
+        """Abstract method to be implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement this method")
+
+class GeneticAlgorithm(OptimizationAlgorithm):
+    def __init__(self, portfolio, k_genetic_mutation, k_modified_elephant, k_crossover):
+        super().__init__(portfolio)
+        self.k_genetic_mutation = k_genetic_mutation
+        self.k_modified_elephant = k_modified_elephant
+        self.k_crossover = k_crossover
+
+    def evolve_population(self, population):
         new_population = []
         for _ in range(len(population) // 2):
-            if random.random() < k_crossover:
+            if random.random() < self.k_crossover:
                 parent1, parent2 = random.sample(population, 2)
                 child = parent1.copy()
                 for day in child.index:
@@ -113,10 +124,10 @@ class GeneticAlgorithm:
                 new_population.append(child)
         
         for elephant in population:
-            if random.random() < k_modified_elephant:
+            if random.random() < self.k_modified_elephant:
                 baby_elephant = elephant.copy()
                 for day in baby_elephant.index:
-                    if random.random() < k_genetic_mutation:
+                    if random.random() < self.k_genetic_mutation:
                         baby_elephant.loc[day] = [random.randint(1, 100) for _ in baby_elephant.columns]
                         baby_elephant.loc[day] /= baby_elephant.loc[day].sum()
                 new_population.append(baby_elephant)
@@ -149,12 +160,12 @@ class GeneticAlgorithm:
         
         return [(elephant, fitness, randint(50, 100)) for elephant, fitness in selected_population]
 
-    def run(self, num_initial_population, k_genetic_mutation, k_modified_elephant, k_crossover, loop_num):
+    def optimize(self, num_initial_population, loop_num):
         population = [self.portfolio._generate_random_pf(self.portfolio.stockData.keys()) for _ in range(num_initial_population)]
         scored_population = [[elephant, self.portfolio.evaluate_pf(elephant), randint(50, 100)] for elephant in population]
-        
+
         for _ in range(loop_num):
-            new_population = self.evolve_population(population, k_genetic_mutation, k_modified_elephant, k_crossover)
+            new_population = self.evolve_population(population)
             scored_new_population = [[elephant, self.portfolio.evaluate_pf(elephant), randint(50, 100)] for elephant in new_population]
             scored_population.extend(scored_new_population)
             scored_population = self.filter_population(scored_population, num_initial_population)
@@ -163,19 +174,15 @@ class GeneticAlgorithm:
             print("=====================================")
             self.portfolio.pf = max(scored_population, key=lambda x: x[1])[0]
             yield max(scored_population, key=lambda x: x[1])[0]
-    
-class SimulatedAnnealing:
 
+class SimulatedAnnealing(OptimizationAlgorithm):
     def __init__(self, portfolio, initial_temp=100, cooling_rate=0.99, max_iter=1000):
-        self.portfolio = portfolio  # Portfolio nesnesi
-        self.T = initial_temp  # Başlangıç sıcaklığı
-        self.cooling_rate = cooling_rate  # Soğuma oranı
-        self.max_iter = max_iter  # Maksimum iterasyon sayısı
+        super().__init__(portfolio)
+        self.T = initial_temp
+        self.cooling_rate = cooling_rate
+        self.max_iter = max_iter
 
     def _get_new_portfolio(self):
-        """
-        Generates a new portfolio with small adjustments while ensuring valid percentages.
-        """
         new_pf = self.portfolio.pf.copy()
         
         # Randomly select two different stocks
@@ -196,67 +203,34 @@ class SimulatedAnnealing:
         return new_pf
 
     def optimize(self):
-        """
-        Simulated Annealing algorithm for portfolio optimization.
-        """
         current_pf = self.portfolio.pf.copy()
         best_pf = current_pf.copy()
-        best_score = self.portfolio.evaluate().iloc[-1]['Money']
+        best_score = self.portfolio.evaluate()[-1]
 
-        for i in range(self.max_iter):
+        for _ in range(self.max_iter):
             new_pf = self._get_new_portfolio()
-            
-            # **Normalize to avoid values outside [0,1]**
-            new_pf = new_pf.div(new_pf.sum(axis=1), axis=0)
-            
-            self.portfolio.pf = new_pf  # Update temporary allocation
-            new_score = self.portfolio.evaluate().iloc[-1]['Money']
+            self.portfolio.pf = new_pf
+            new_score = self.portfolio.evaluate()[-1]
 
             delta = new_score - best_score
-
-            if delta > 0:
+            if delta > 0 or np.random.rand() < np.exp(delta / self.T):
                 best_pf = new_pf.copy()
                 best_score = new_score
-            else:
-                prob = np.exp(delta / self.T)
-                if np.random.rand() < prob:
-                    best_pf = new_pf.copy()
-                    best_score = new_score
 
-            self.T *= self.cooling_rate  # Cool down temperature
+            self.T *= self.cooling_rate
             if self.T < 0.01:
                 break
 
-        # ✅ **Fix: Ensure SA updates Portfolio.pf correctly**
-        self.portfolio.pf = best_pf.div(best_pf.sum(axis=1), axis=0)  # Normalize again
-
+        self.portfolio.pf = best_pf
         return best_pf, best_score
 
-class HillClimbing:
+class HillClimbing(OptimizationAlgorithm):
     def __init__(self, portfolio, iterations=1000, step_size=0.3):
-        self.portfolio = portfolio  # Portfolio object
-        self.iterations = iterations  # Number of optimization steps
-        self.step_size = step_size  # Max % change in stock allocation
-
-    def optimize(self):
-        """Optimize portfolio using Hill Climbing."""
-        current_pf = self.portfolio.pf.copy()  # Start with the current allocation
-        current_eval = self.portfolio.evaluate_pf(current_pf)  # Evaluate initial money
-        best_pf, best_eval = current_pf, current_eval
-
-        for _ in range(self.iterations):
-            new_pf = self.modify_allocation(current_pf)  # Generate new allocation
-            new_eval = self.portfolio.evaluate_pf(new_pf)  # Evaluate new portfolio
-
-            if new_eval > best_eval:  # Keep the new allocation only if it's better
-                best_pf, best_eval = new_pf, new_eval
-                current_pf = new_pf  # Continue optimizing from the new best
-
-        self.portfolio.pf = best_pf  # Update portfolio with best allocation
-        return best_pf, best_eval
+        super().__init__(portfolio)
+        self.iterations = iterations
+        self.step_size = step_size
 
     def modify_allocation(self, allocation):
-        """Modify allocation slightly."""
         new_allocation = allocation.copy()
         stock = np.random.choice(list(new_allocation.columns))  # Pick a random stock
         change = np.random.uniform(-self.step_size, self.step_size)  # Change allocation by ± step_size
@@ -264,6 +238,23 @@ class HillClimbing:
         new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
         new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)  # Normalize
         return new_allocation
+
+    def optimize(self):
+        current_pf = self.portfolio.pf.copy()
+        best_pf = current_pf.copy()
+        best_eval = self.portfolio.evaluate_pf(current_pf)
+
+        for _ in range(self.iterations):
+            new_pf = self.modify_allocation(current_pf)
+            new_eval = self.portfolio.evaluate_pf(new_pf)
+
+            if new_eval > best_eval:
+                best_pf = new_pf.copy()
+                best_eval = new_eval
+                current_pf = new_pf
+
+        self.portfolio.pf = best_pf
+        return best_pf, best_eval
     
 if __name__ == '__main__':
     p_random = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
@@ -271,8 +262,8 @@ if __name__ == '__main__':
     print(p_random.evaluate())
     p_sa = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
 
-    ga = GeneticAlgorithm(p_random)
-    temp_best = ga.run(30, 0.3, 0.9, 0.5, 20)
+    ga = GeneticAlgorithm(p_random, 0.3, 0.9, 0.5)
+    temp_best = ga.optimize(30, 20)
     print("Finito!")
 
     print(p_random.pf)
