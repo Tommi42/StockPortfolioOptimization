@@ -292,3 +292,72 @@ if __name__ == '__main__':
     print(p_random.pf)
     print(p_random.evaluate())
 
+<<<<<<< HEAD
+=======
+class TabuSearch(OptimizationAlgorithm):
+    def __init__(self, portfolio, iterations=1000, tabu_size=50):
+        super().__init__(portfolio)
+        self.iterations = iterations
+        self.tabu_size = tabu_size
+        self.tabu_list = []
+
+    def modify_allocation(self, allocation):
+        new_allocation = allocation.copy()
+        stock = np.random.choice(list(new_allocation.columns))  # Pick a random stock
+        change = np.random.uniform(-0.3, 0.3)  # Change allocation by ±0.3
+        
+        new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
+        new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)  # Normalize
+        return new_allocation
+
+    def optimize(self):
+        current_pf = self.portfolio.pf.copy()
+        best_pf = current_pf.copy()
+        best_eval = self.portfolio.evaluate_pf(current_pf)
+        
+        for _ in range(self.iterations):
+            new_pf = self.modify_allocation(current_pf)
+            new_eval = self.portfolio.evaluate_pf(new_pf)
+            
+            if str(new_pf.values.tolist()) not in self.tabu_list and new_eval > best_eval:
+                best_pf = new_pf.copy()
+                best_eval = new_eval
+                current_pf = new_pf
+                
+                self.tabu_list.append(str(new_pf.values.tolist()))
+                if len(self.tabu_list) > self.tabu_size:
+                    self.tabu_list.pop(0)  # Maintain tabu list size
+        
+        self.portfolio.pf = best_pf
+        return best_pf, best_eval
+    """
+    # Rastgele portföy değeri
+    random_value = p_random.evaluate()
+
+    # Simulated Annealing portföy değeri
+    sa = SimulatedAnnealing(p_sa)
+    best_pf, best_score = sa.optimize()
+
+    sa_value = p_sa.evaluate()
+
+    # Grafik karşılaştırması
+    plt.figure(figsize=(10, 6))
+    plt.plot(random_value['Money'], label='Random Portfolio', linestyle='--')
+    plt.plot(sa_value['Money'], label='Simulated Annealing (Optimized)', linewidth=2)
+    plt.title('Portfolio Value Comparison')
+    plt.xlabel('Time Steps')
+    plt.ylabel('Portfolio Value')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    # Sonuçların Yazdırılması
+    print("\n--- Random Portfolio ---")
+    print(f"Final Value: {random_value.iloc[-1]['Money']:.2f}")
+    print(p_random.pf)
+
+    print("\n--- Simulated Annealing (Optimized Portfolio) ---")
+    print(f"Final Value: {best_score:.2f}")
+    print(best_pf)"
+    """
+>>>>>>> 937225f50793b34b63325e34764fcaf70d1a51fa

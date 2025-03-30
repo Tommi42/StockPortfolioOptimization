@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from utils import Portfolio, SimulatedAnnealing, GeneticAlgorithm, HillClimbing
+from utils import Portfolio, SimulatedAnnealing, GeneticAlgorithm, HillClimbing, TabuSearch
 
 import datetime
 import altair as alt
@@ -84,6 +84,9 @@ if 'hc_portfolio' not in st.session_state:
 if  'sa_portfolio' not in st.session_state:
     st.session_state['sa_portfolio'] = st.session_state['portfolio']
 
+if 'ts_portfolio' not in st.session_state:
+    st.session_state['ts_portfolio'] = st.session_state['portfolio']
+
 
 st.title("Stock Portfolio Optimization")
 
@@ -100,7 +103,7 @@ with c1:
         start_date = col1.date_input("Starting date", datetime.date(2016, 2, 1))
         end_date = col2.date_input("End date", datetime.date(2016, 6, 1))
 
-        portfolio_type = st.radio("Optimization Type", ["Random", "Simulated Annealing", "Genetic Algorithm", "Hill Climbing"])
+        portfolio_type = st.radio("Optimization Type", ["Random", "Simulated Annealing", "Genetic Algorithm", "Hill Climbing", "Tabu Search"])
 
         if portfolio_type == 'Genetic Algorithm':
             num_population = st.slider("Select the number of starting population.", 5, 40, 15)
@@ -183,12 +186,19 @@ with c1:
                             best_pf, _ = hc.optimize()
                             st.session_state['hc_portfolio'].pf = best_pf  # ✅ Update HC portfolio
                             DataView(portfolio_type)  # ✅ Show the graph!
-
-                elif portfolio_type == "Random":
+                elif portfolio_type == "Tabu Search":
+                    st.session_state['ts_portfolio'] = Portfolio(
+                        1000, selected_stocks, start_date=start_date, end_date=end_date
+                    )
+                    with c2:
+                        with st.spinner("Running Tabu Search..."):
+                            ts = TabuSearch(st.session_state['ts_portfolio'])
+                            best_pf, _ = ts.optimize()
+                            st.session_state['ts_portfolio'].pf = best_pf  # ✅ Update TS portfolio
+                            DataView(portfolio_type)  # ✅ Show the graph!
+                else:
                     st.session_state['portfolio'] = Portfolio(1000, selected_stocks, start_date=start_date, end_date=end_date)
-                    with c2 :
+                    with c2:
                         DataView(portfolio_type)
-
-
 
                 st.success("Portfolio updated successfully")
