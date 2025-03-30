@@ -21,6 +21,8 @@ class DataView():
                 portfolio = st.session_state['sa_portfolio']
             elif portfolio_type == "Hill Climbing":
                 portfolio = st.session_state['hc_portfolio']
+            elif portfolio_type == "Tabu Search":
+                portfolio = st.session_state['ts_portfolio']
             else:  # Default to Genetic Algorithm
                 portfolio = st.session_state['ga_portfolio']
 
@@ -117,6 +119,12 @@ with c1:
             sa_temp = st.slider("Initial Temperature", 1.0, 500.0, 100.0)
             sa_cooling = st.slider("Cooling Rate", 0.80, 0.99, 0.95)
 
+
+        if portfolio_type == "Tabu Search":
+            ts_max_iter = st.slider("Max Iterations", 10, 1000, 100)
+            ts_max_size = st.slider("Max Size", 10, 100, 50)
+
+
         if st.button("Run", type="primary"):
 
             if len(selected_stocks) == 0:
@@ -148,7 +156,7 @@ with c1:
                                 percent_complete += 1 / sa_max_iter
                                 my_bar.progress(percent_complete, text=progress_text)
                                 st.session_state['sa_portfolio'].pf = sa.best_pf
-                    DataView(portfolio_type)
+                    with c2: DataView(portfolio_type)
             
                     st.success("Simulated Annealing optimization completed!")
                     
@@ -186,19 +194,29 @@ with c1:
                             best_pf, _ = hc.optimize()
                             st.session_state['hc_portfolio'].pf = best_pf  # ✅ Update HC portfolio
                             DataView(portfolio_type)  # ✅ Show the graph!
+                
                 elif portfolio_type == "Tabu Search":
                     st.session_state['ts_portfolio'] = Portfolio(
                         1000, selected_stocks, start_date=start_date, end_date=end_date
                     )
                     with c2:
-                        with st.spinner("Running Tabu Search..."):
-                            ts = TabuSearch(st.session_state['ts_portfolio'])
-                            best_pf, _ = ts.optimize()
-                            st.session_state['ts_portfolio'].pf = best_pf  # ✅ Update TS portfolio
-                            DataView(portfolio_type)  # ✅ Show the graph!
+                        progress_text = "Working on it... (I'm not Warren Buffett but I'm doing my best)"
+                        my_bar = st.progress(0, text=progress_text)
+                        percent_complete = 0
+
+                        ts = TabuSearch(st.session_state['ts_portfolio'], iterations=ts_max_iter, tabu_size=ts_max_size)
+                        with st.empty():
+                            print("Optimising")
+                            for result in ts.optimize():
+                                print("A")
+                                print(result)
+                                percent_complete = percent_complete + (1/ts_max_iter)
+                                st.session_state['ts_portfolio'].pf = result
+                                DataView(portfolio_type)
+                    
+                
                 else:
                     st.session_state['portfolio'] = Portfolio(1000, selected_stocks, start_date=start_date, end_date=end_date)
-                    with c2:
-                        DataView(portfolio_type)
+                    with c2: DataView('Random')
 
                 st.success("Portfolio updated successfully")

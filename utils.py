@@ -110,6 +110,7 @@ class OptimizationAlgorithm:
         raise NotImplementedError("Subclasses must implement this method")
 
 class GeneticAlgorithm(OptimizationAlgorithm):
+
     def __init__(self, portfolio, k_genetic_mutation, k_modified_elephant, k_crossover):
         super().__init__(portfolio)
         self.k_genetic_mutation = k_genetic_mutation
@@ -256,11 +257,22 @@ class HillClimbing(OptimizationAlgorithm):
 
     def modify_allocation(self, allocation):
         new_allocation = allocation.copy()
-        stock = np.random.choice(list(new_allocation.columns))  # Pick a random stock
-        change = np.random.uniform(-self.step_size, self.step_size)  # Change allocation by ± step_size
+        stocks = list(new_allocation.columns)
         
-        new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
-        new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)  # Normalize
+        # Generate a vector with a random block set to 1 and others set to 0
+        block_size = np.random.randint(1, len(stocks) // 2 + 1)  # Block size between 1 and half the number of stocks
+        block_stocks = np.random.choice(stocks, block_size, replace=False)
+        block_vector = np.zeros(len(stocks))
+        for stock in block_stocks:
+            block_vector[stocks.index(stock)] = 1  # Set the block to 1
+        
+        # Apply a random change to the selected block
+        change = np.random.uniform(-0.3, 0.3)  # Change allocation by ±0.3
+        for stock in block_stocks:
+            new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
+        
+        # Normalize allocations to ensure they sum to 1
+        new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)
         return new_allocation
 
     def optimize(self):
@@ -281,7 +293,8 @@ class HillClimbing(OptimizationAlgorithm):
         return best_pf, 
 
 class TabuSearch(OptimizationAlgorithm):
-    def __init__(self, portfolio, iterations=1000, tabu_size=50):
+
+    def __init__(self, portfolio, iterations=100, tabu_size=50):
         super().__init__(portfolio)
         self.iterations = iterations
         self.tabu_size = tabu_size
@@ -289,17 +302,40 @@ class TabuSearch(OptimizationAlgorithm):
 
     def modify_allocation(self, allocation):
         new_allocation = allocation.copy()
-        stock = np.random.choice(list(new_allocation.columns))  # Pick a random stock
-        change = np.random.uniform(-0.3, 0.3)  # Change allocation by ±0.3
+        stocks = list(new_allocation.columns)
         
-        new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
-        new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)  # Normalize
+        # Generate a vector with a random block set to 1 and others set to 0
+        block_size = np.random.randint(1, len(stocks) // 2 + 1)  # Block size between 1 and half the number of stocks
+        block_stocks = np.random.choice(stocks, block_size, replace=False)
+        block_vector = np.zeros(len(stocks))
+        print(block_vector)
+        for stock in block_stocks:
+            block_vector[stocks.index(stock)] = 1  # Set the block to 1
+
+
+        vector = np.zeros(self.portfolio.num_day)
+        length = random.randint(1, self.portfolio.num_day // 2)
+        start = np.random.randint(0, self.portfolio.num_day - length + 1)  # Punto iniziale casuale
+        vector[start:start + length] = 1
+
+        
+        # Apply a random change to the selected block
+        change = np.random.uniform(-0.3, 0.3)  # Change allocation by ±0.3
+        change *= vector
+        for stock in block_stocks:
+            new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
+
+        
+        # Normalize allocations to ensure they sum to 1
+        new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)
         return new_allocation
 
     def optimize(self):
         current_pf = self.portfolio.pf.copy()
         best_pf = current_pf.copy()
         best_eval = self.portfolio.evaluate_pf(current_pf)
+
+        print(self.iterations)
         
         for _ in range(self.iterations):
             new_pf = self.modify_allocation(current_pf)
@@ -309,14 +345,13 @@ class TabuSearch(OptimizationAlgorithm):
                 best_pf = new_pf.copy()
                 best_eval = new_eval
                 current_pf = new_pf
-                
                 self.tabu_list.append(str(new_pf.values.tolist()))
                 if len(self.tabu_list) > self.tabu_size:
                     self.tabu_list.pop(0)  # Maintain tabu list size
-        
-        self.portfolio.pf = best_pf
-        return best_pf, best_eval
 
+                yield best_pf
+                
+        
     
 if __name__ == '__main__':
     p_random = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
