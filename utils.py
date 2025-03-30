@@ -372,16 +372,9 @@ class TabuSearch(OptimizationAlgorithm):
         
     
 if __name__ == '__main__':
-    p_random = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
-    print(p_random.pf)
-    print(p_random.evaluate())
-    p_sa = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
+    # Write here code for running without Stremlit UI
+    pass
 
-    ga = GeneticAlgorithm(p_random, 0.3, 0.9, 0.5)
-    temp_best = ga.optimize(30, 20)
-
-    print(p_random.pf)
-    print(p_random.evaluate())
 
 
 

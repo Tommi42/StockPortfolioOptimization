@@ -111,7 +111,7 @@ with c1:
             num_population = st.slider("Select the number of starting population.", 5, 40, 15)
             num_generation = st.slider("Select the number of generations.", 10, 60, 20)
             k_genetic_mutation = st.slider("Genetic Mutation Rate", 0.1, 1.0, 0.3)
-            k_modified_elephant = st.slider("Modified Elephant Rate", 0.1, 1.0, 0.9)
+            k_modified_elephant = st.slider("Modified Portfolio Rate", 0.1, 1.0, 0.9)
             k_crossover = st.slider("Crossover Rate", 0.1, 1.0, 0.5)
 
         if portfolio_type == "Simulated Annealing":
