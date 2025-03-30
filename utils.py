@@ -39,7 +39,12 @@ class Portfolio:
         self.start_value = start_value
         self.stockData = {stock: DataReader(f"./archive/{stock}.csv", start_date, end_date) for stock in stocks}
         self.num_day = len(self.stockData[stocks[0]].get_adj_close()['Date'])
-        self.time_span = pd.DataFrame({"Date": self.stockData[stocks[0]].get_adj_close()['Date']})
+        dates_list = [pd.to_datetime(self.stockData[stock].get_adj_close()['Date']) for stock in stocks]
+        common_dates = set(dates_list[0]).intersection(*dates_list[1:])
+        common_dates = sorted(list(common_dates)) 
+
+        self.time_span = pd.DataFrame({"Date": common_dates})
+        self.num_day = len(self.time_span)
 
         # Initialize stock weights randomly
         pf = pd.DataFrame({stock: [randint(1, 100) for _ in range(len(self.time_span))] for stock in stocks})
@@ -59,6 +64,16 @@ class Portfolio:
     
     def get_stocks(self):
         return list(self.stockData.keys())
+    
+    def get_price_on_day(self, stock, day):
+        df = self.stockData[stock].get_adj_close().copy()
+        df['Date'] = pd.to_datetime(df['Date'])
+        day = pd.to_datetime(day)
+        match = df[df['Date'] == day]
+        if not match.empty:
+            return float(match['Adj Close'].iloc[0])
+        else:
+            raise ValueError(f"❌ Date {day.date()} not found in stock '{stock}' data.")
 
 
     def evaluate(self):
@@ -70,9 +85,9 @@ class Portfolio:
             new_money = 0
             for stock in self.stockData:
                 money_stock_owned = self.pf[stock][i-1] * money
-                old_stock_price = float(self.stockData[stock].get_adj_close().loc[self.stockData[stock].get_adj_close()['Date'] == old_day]['Adj Close'].iloc[0])
+                old_stock_price = self.get_price_on_day(stock, old_day)
                 stock_owned = money_stock_owned / old_stock_price
-                current_stock_price = float(self.stockData[stock].get_adj_close().loc[self.stockData[stock].get_adj_close()['Date'] == day]['Adj Close'].iloc[0])
+                current_stock_price = self.get_price_on_day(stock, day)
                 new_money += current_stock_price * stock_owned
             money = new_money
             array_money.append(money)
@@ -92,9 +107,9 @@ class Portfolio:
             new_money = 0
             for stock in self.stockData:
                 money_stock_owned = pf[stock][i-1] * money
-                old_stock_price = float(self.stockData[stock].get_adj_close().loc[self.stockData[stock].get_adj_close()['Date'] == old_day]['Adj Close'].iloc[0])
+                old_stock_price = self.get_price_on_day(stock, old_day)
                 stock_owned = money_stock_owned / old_stock_price
-                current_stock_price = float(self.stockData[stock].get_adj_close().loc[self.stockData[stock].get_adj_close()['Date'] == day]['Adj Close'].iloc[0])
+                current_stock_price = self.get_price_on_day(stock, day)
                 new_money += current_stock_price * stock_owned
             money = new_money
             array_money.append(money)
@@ -278,7 +293,7 @@ class HillClimbing(OptimizationAlgorithm):
                 current_pf = new_pf
 
         self.portfolio.pf = best_pf
-        return best_pf, 
+        return best_pf, best_eval 
 
 class TabuSearch(OptimizationAlgorithm):
     def __init__(self, portfolio, iterations=1000, tabu_size=50):
@@ -289,33 +304,56 @@ class TabuSearch(OptimizationAlgorithm):
 
     def modify_allocation(self, allocation):
         new_allocation = allocation.copy()
-        stock = np.random.choice(list(new_allocation.columns))  # Pick a random stock
-        change = np.random.uniform(-0.3, 0.3)  # Change allocation by ±0.3
-        
-        new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
-        new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)  # Normalize
+        stocks = list(new_allocation.columns)
+        num_days = new_allocation.shape[0]
+
+        # Gün ve stock rastgele seçiliyor
+        for _ in range(3):  # İstersen 1 yerine 3 gün değiştir
+            day_idx = np.random.randint(0, num_days)
+            stock = np.random.choice(stocks)
+            change = np.random.uniform(-0.2, 0.2)
+
+            # Günlük hücre değişimi
+            new_allocation.at[day_idx, stock] = np.clip(new_allocation.at[day_idx, stock] + change, 0, 1)
+
+            # O günün tüm değerlerini normalize et
+            row_sum = new_allocation.iloc[day_idx].sum()
+            if row_sum > 0:
+                new_allocation.iloc[day_idx] /= row_sum
+
         return new_allocation
+
 
     def optimize(self):
         current_pf = self.portfolio.pf.copy()
         best_pf = current_pf.copy()
         best_eval = self.portfolio.evaluate_pf(current_pf)
-        
+
         for _ in range(self.iterations):
             new_pf = self.modify_allocation(current_pf)
             new_eval = self.portfolio.evaluate_pf(new_pf)
-            
-            if str(new_pf.values.tolist()) not in self.tabu_list and new_eval > best_eval:
+            pf_signature = hash(tuple(np.round(new_pf.values.flatten(), 3)))
+
+            # Eğer tabu listesinde değilse ve daha iyiyse
+            if pf_signature not in self.tabu_list and new_eval > best_eval:
                 best_pf = new_pf.copy()
                 best_eval = new_eval
                 current_pf = new_pf
-                
-                self.tabu_list.append(str(new_pf.values.tolist()))
+
+                self.tabu_list.append(pf_signature)
                 if len(self.tabu_list) > self.tabu_size:
-                    self.tabu_list.pop(0)  # Maintain tabu list size
-        
+                    self.tabu_list.pop(0)
+
+            # 🔄 Eğer tabu listesinde değilse ama daha kötü bile olsa, ilerle:
+            elif pf_signature not in self.tabu_list:
+                current_pf = new_pf
+                self.tabu_list.append(pf_signature)
+                if len(self.tabu_list) > self.tabu_size:
+                    self.tabu_list.pop(0)
+
         self.portfolio.pf = best_pf
         return best_pf, best_eval
+
 
     
 if __name__ == '__main__':
