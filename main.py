@@ -12,9 +12,9 @@ class DataView():
         with st.container():
             st.header(f"Stock simulation")
 
-            col1, col2, col3, col4 = st.columns(4)  # Define 4 columns for all portfolio types
+            col1, col2, col3, col4 = st.columns(4)  
 
-            # Select the correct portfolio object based on the type
+            
             if portfolio_type == "Random":
                 portfolio = st.session_state['portfolio']
             elif portfolio_type == "Simulated Annealing":
@@ -23,48 +23,48 @@ class DataView():
                 portfolio = st.session_state['hc_portfolio']
             elif portfolio_type == "Tabu Search":
                 portfolio = st.session_state['ts_portfolio']
-            else:  # Default to Genetic Algorithm
+            else:  
                 portfolio = st.session_state['ga_portfolio']
 
-            # ✅ Add this check before calling .evaluate()
+            
             if portfolio is None:
                 st.error(f"{portfolio_type} portfolio is not initialized. Run the algorithm first.")
                 return
 
-            # Get money over time and daily stock allocations
+            
             money_chart_data = portfolio.evaluate()
             daily_allocations = portfolio.get_daily_allocations()
 
-            # Display the final portfolio value as a metric
+            
             final_value = money_chart_data[-1]
             st.metric(label="Final Portfolio Value", value=f"${final_value:,.2f}", delta = f"{(final_value - 1000):,.2f}")
 
-            # Merge data properly
+            
             merged_data = daily_allocations.copy()
             merged_data["Money"] = money_chart_data
-            merged_data["Date"] = portfolio.time_span["Date"].values  # Ensure Date is added correctly
+            merged_data["Date"] = portfolio.time_span["Date"].values  
             merged_data = merged_data.reset_index().rename(columns={"index": "Day"})
 
-            stock_columns = [col for col in daily_allocations.columns if col != "Date"]  # Remove Date from % list
+            stock_columns = [col for col in daily_allocations.columns if col != "Date"]  
 
-            # **Fix: Ensure All Stock Percentages & Date are in the Tooltip**
+           
             tooltip_list = [alt.Tooltip("Date:T", title="Date"), "Day:Q", "Money:Q"] + [
                 alt.Tooltip(stock + ":Q", title=f"{stock} (%)") for stock in stock_columns
             ]
 
-            # **📈 Money Line Chart with Date & Stock Percentages in Tooltip**
+            
             self.money_chart = (
                 alt.Chart(merged_data)
                 .mark_line(color="red", strokeWidth=2)
                 .encode(
                     x="Day:Q",
                     y="Money:Q",
-                    tooltip=tooltip_list  #  Fix: Show Date properly
+                    tooltip=tooltip_list  
                 )
                 .interactive()
             )
 
-            # **Show the Chart**
+            
             st.altair_chart(self.money_chart, use_container_width=True)
             st.line_chart(portfolio.pf)
 
@@ -149,10 +149,10 @@ with c1:
                         percent_complete = 0
                         print("Starting Simulated Annealing")
                         for _ in range(sa_max_iter):
-                            sa.step()  # Perform a single SA iteration
+                            sa.step()  
                             percent_complete += 1 / sa_max_iter
                             my_bar.progress(percent_complete, text=progress_text)
-                            st.session_state['sa_portfolio'].pf = sa.best_pf  # Update best pf
+                            st.session_state['sa_portfolio'].pf = sa.best_pf  
 
                     with c2:
                         DataView(portfolio_type)
@@ -191,8 +191,8 @@ with c1:
                         with st.spinner("Wait for it..."):
                             hc = HillClimbing(st.session_state['hc_portfolio'])
                             best_pf, _ = hc.optimize()
-                            st.session_state['hc_portfolio'].pf = best_pf  # ✅ Update HC portfolio
-                            DataView(portfolio_type)  # ✅ Show the graph!
+                            st.session_state['hc_portfolio'].pf = best_pf  
+                            DataView(portfolio_type)  
                 
                 elif portfolio_type == "Tabu Search":
                     st.session_state['ts_portfolio'] = Portfolio(

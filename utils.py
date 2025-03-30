@@ -46,18 +46,18 @@ class Portfolio:
         self.time_span = pd.DataFrame({"Date": common_dates})
         self.num_day = len(self.time_span)
 
-        # Initialize stock weights randomly
+        
         pf = pd.DataFrame({stock: [randint(1, 100) for _ in range(len(self.time_span))] for stock in stocks})
 
-        # Normalize weights so that each row sums to 1
+        
         self.pf = pf.div(pf.sum(axis=1), axis=0)
 
     def get_daily_allocations(self):
         """Returns the percentage of each stock per day in a tooltip-friendly format."""
         daily_allocations = self.pf.copy()
         daily_allocations['Date'] = self.time_span['Date']
-        daily_allocations.set_index('Date', inplace=True)  # Ensure Date is the index
-        return daily_allocations.reset_index()  # Reset index for Altair
+        daily_allocations.set_index('Date', inplace=True)  
+        return daily_allocations.reset_index()  
 
     def __string__(self):
         return self.element
@@ -121,7 +121,7 @@ class OptimizationAlgorithm:
         self.portfolio = portfolio
 
     def optimize(self):
-        """Abstract method to be implemented by subclasses."""
+        
         raise NotImplementedError("Subclasses must implement this method")
 
 class GeneticAlgorithm(OptimizationAlgorithm):
@@ -225,19 +225,19 @@ class SimulatedAnnealing(OptimizationAlgorithm):
     def _get_new_portfolio(self):
         new_pf = self.portfolio.pf.copy()
         
-        # Randomly select two different stocks
+        
         stocks = self.portfolio.get_stocks()
         stock1, stock2 = np.random.choice(stocks, 2, replace=False)
 
-        # Randomly choose a transfer amount (max 5% of stock1's value)
+        
         delta = np.random.uniform(0.01, min(0.05, new_pf[stock1].min()))
 
-        # Ensure stock1 does not go below 0 and stock2 does not exceed 1
+        
         if new_pf[stock1].min() - delta >= 0 and new_pf[stock2].max() + delta <= 1:
             new_pf[stock1] -= delta
             new_pf[stock2] += delta
 
-        # ✅ **Normalize allocations to ensure they sum to 1**
+        
         new_pf = new_pf.div(new_pf.sum(axis=1), axis=0)
 
         return new_pf
@@ -274,19 +274,19 @@ class HillClimbing(OptimizationAlgorithm):
         new_allocation = allocation.copy()
         stocks = list(new_allocation.columns)
         
-        # Generate a vector with a random block set to 1 and others set to 0
-        block_size = np.random.randint(1, len(stocks) // 2 + 1)  # Block size between 1 and half the number of stocks
+       
+        block_size = np.random.randint(1, len(stocks) // 2 + 1) 
         block_stocks = np.random.choice(stocks, block_size, replace=False)
         block_vector = np.zeros(len(stocks))
         for stock in block_stocks:
-            block_vector[stocks.index(stock)] = 1  # Set the block to 1
+            block_vector[stocks.index(stock)] = 1 
         
-        # Apply a random change to the selected block
-        change = np.random.uniform(-0.3, 0.3)  # Change allocation by ±0.3
+        
+        change = np.random.uniform(-0.3, 0.3)  
         for stock in block_stocks:
-            new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
+            new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  
         
-        # Normalize allocations to ensure they sum to 1
+        
         new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)
         return new_allocation
 
@@ -319,29 +319,29 @@ class TabuSearch(OptimizationAlgorithm):
         new_allocation = allocation.copy()
         stocks = list(new_allocation.columns)
         
-        # Generate a vector with a random block set to 1 and others set to 0
-        block_size = np.random.randint(1, len(stocks) // 2 + 1)  # Block size between 1 and half the number of stocks
+        
+        block_size = np.random.randint(1, len(stocks) // 2 + 1) 
         block_stocks = np.random.choice(stocks, block_size, replace=False)
         block_vector = np.zeros(len(stocks))
         print(block_vector)
         for stock in block_stocks:
-            block_vector[stocks.index(stock)] = 1  # Set the block to 1
+            block_vector[stocks.index(stock)] = 1  
 
 
         vector = np.zeros(self.portfolio.num_day)
         length = random.randint(1, self.portfolio.num_day // 2)
-        start = np.random.randint(0, self.portfolio.num_day - length + 1)  # Punto iniziale casuale
+        start = np.random.randint(0, self.portfolio.num_day - length + 1)  
         vector[start:start + length] = 1
 
         
-        # Apply a random change to the selected block
-        change = np.random.uniform(-0.3, 0.3)  # Change allocation by ±0.3
+       
+        change = np.random.uniform(-0.3, 0.3)  
         change *= vector
         for stock in block_stocks:
-            new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
+            new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  
 
         
-        # Normalize allocations to ensure they sum to 1
+        
         new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)
         return new_allocation
 
@@ -358,21 +358,21 @@ class TabuSearch(OptimizationAlgorithm):
             new_eval = self.portfolio.evaluate_pf(new_pf)
             pf_signature = hash(tuple(np.round(new_pf.values.flatten(), 3)))
 
-            # Eğer tabu listesinde değilse ve daha iyiyse
+            
             if pf_signature not in self.tabu_list and new_eval > best_eval:
                 best_pf = new_pf.copy()
                 best_eval = new_eval
                 current_pf = new_pf
                 self.tabu_list.append(str(new_pf.values.tolist()))
                 if len(self.tabu_list) > self.tabu_size:
-                    self.tabu_list.pop(0)  # Maintain tabu list size
+                    self.tabu_list.pop(0)  
 
                 yield best_pf
                 
         
     
 if __name__ == '__main__':
-    # Write here code for running without Stremlit UI
+    
     pass
 
 
