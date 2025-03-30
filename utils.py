@@ -278,22 +278,8 @@ class HillClimbing(OptimizationAlgorithm):
                 current_pf = new_pf
 
         self.portfolio.pf = best_pf
-        return best_pf, best_eval
-    
-if __name__ == '__main__':
-    p_random = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
-    print(p_random.pf)
-    print(p_random.evaluate())
-    p_sa = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
+        return best_pf, 
 
-    ga = GeneticAlgorithm(p_random, 0.3, 0.9, 0.5)
-    temp_best = ga.optimize(30, 20)
-
-    print(p_random.pf)
-    print(p_random.evaluate())
-
-<<<<<<< HEAD
-=======
 class TabuSearch(OptimizationAlgorithm):
     def __init__(self, portfolio, iterations=1000, tabu_size=50):
         super().__init__(portfolio)
@@ -330,34 +316,20 @@ class TabuSearch(OptimizationAlgorithm):
         
         self.portfolio.pf = best_pf
         return best_pf, best_eval
-    """
-    # Rastgele portföy değeri
-    random_value = p_random.evaluate()
 
-    # Simulated Annealing portföy değeri
-    sa = SimulatedAnnealing(p_sa)
-    best_pf, best_score = sa.optimize()
-
-    sa_value = p_sa.evaluate()
-
-    # Grafik karşılaştırması
-    plt.figure(figsize=(10, 6))
-    plt.plot(random_value['Money'], label='Random Portfolio', linestyle='--')
-    plt.plot(sa_value['Money'], label='Simulated Annealing (Optimized)', linewidth=2)
-    plt.title('Portfolio Value Comparison')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Portfolio Value')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-    # Sonuçların Yazdırılması
-    print("\n--- Random Portfolio ---")
-    print(f"Final Value: {random_value.iloc[-1]['Money']:.2f}")
+    
+if __name__ == '__main__':
+    p_random = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
     print(p_random.pf)
+    print(p_random.evaluate())
+    p_sa = Portfolio(1000, ["ALL", "A2M", "AGL"], '2016-01-01', '2017-01-01')
 
-    print("\n--- Simulated Annealing (Optimized Portfolio) ---")
-    print(f"Final Value: {best_score:.2f}")
-    print(best_pf)"
-    """
->>>>>>> 937225f50793b34b63325e34764fcaf70d1a51fa
+    ga = GeneticAlgorithm(p_random, 0.3, 0.9, 0.5)
+    temp_best = ga.optimize(30, 20)
+
+    print(p_random.pf)
+    print(p_random.evaluate())
+
+
+
+
