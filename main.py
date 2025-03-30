@@ -144,21 +144,20 @@ with c1:
                     )
 
                     progress_text = "Working on it... (Simulated Annealing ❄️)"
-                    with c2: my_bar = st.progress(0, text=progress_text)
-                    temp_best = []
-                    percent_complete = 0
                     with c2:
+                        my_bar = st.progress(0, text=progress_text)
+                        percent_complete = 0
                         print("Starting Simulated Annealing")
-                        with st.empty():
-                            for _ in range(sa_max_iter):
-                                sa.step()  # Perform a single SA iteration
-                                temp_best.append(sa.best_pf)
-                                percent_complete += 1 / sa_max_iter
-                                my_bar.progress(percent_complete, text=progress_text)
-                                st.session_state['sa_portfolio'].pf = sa.best_pf
-                    with c2: DataView(portfolio_type)
-            
+                        for _ in range(sa_max_iter):
+                            sa.step()  # Perform a single SA iteration
+                            percent_complete += 1 / sa_max_iter
+                            my_bar.progress(percent_complete, text=progress_text)
+                            st.session_state['sa_portfolio'].pf = sa.best_pf  # Update best pf
+
+                    with c2:
+                        DataView(portfolio_type)
                     st.success("Simulated Annealing optimization completed!")
+
                     
                 elif portfolio_type == "Genetic Algorithm":
                     st.session_state['ga_portfolio'] = Portfolio(
