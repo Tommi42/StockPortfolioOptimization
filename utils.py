@@ -56,6 +56,10 @@ class Portfolio:
 
     def __string__(self):
         return self.element
+    
+    def get_stocks(self):
+        return list(self.stockData.keys())
+
 
     def evaluate(self):
         money = self.start_value
@@ -176,11 +180,31 @@ class GeneticAlgorithm(OptimizationAlgorithm):
             yield max(scored_population, key=lambda x: x[1])[0]
 
 class SimulatedAnnealing(OptimizationAlgorithm):
-    def __init__(self, portfolio, initial_temp=100, cooling_rate=0.99, max_iter=1000):
-        super().__init__(portfolio)
+    def __init__(self, portfolio, initial_temp=100, cooling_rate=0.95, max_iter=1000):
+        self.portfolio = portfolio
         self.T = initial_temp
         self.cooling_rate = cooling_rate
         self.max_iter = max_iter
+        self.best_pf = portfolio.pf.copy()
+        evaluate_result = portfolio.evaluate()
+        self.best_score = evaluate_result[-1] if isinstance(evaluate_result, list) else evaluate_result.iloc[-1]['Money']
+
+
+    def step(self):
+        new_pf = self._get_new_portfolio()
+        new_pf = new_pf.div(new_pf.sum(axis=1), axis=0)
+        self.portfolio.pf = new_pf
+        evaluate_result = self.portfolio.evaluate()
+        new_score = evaluate_result[-1] if isinstance(evaluate_result, list) else evaluate_result.iloc[-1]['Money']
+
+        delta = new_score - self.best_score
+
+        if delta > 0 or np.random.rand() < np.exp(delta / self.T):
+            self.best_pf = new_pf.copy()
+            self.best_score = new_score
+
+        self.T *= self.cooling_rate
+    
 
     def _get_new_portfolio(self):
         new_pf = self.portfolio.pf.copy()
@@ -201,7 +225,7 @@ class SimulatedAnnealing(OptimizationAlgorithm):
         new_pf = new_pf.div(new_pf.sum(axis=1), axis=0)
 
         return new_pf
-
+    
     def optimize(self):
         current_pf = self.portfolio.pf.copy()
         best_pf = current_pf.copy()
@@ -264,39 +288,7 @@ if __name__ == '__main__':
 
     ga = GeneticAlgorithm(p_random, 0.3, 0.9, 0.5)
     temp_best = ga.optimize(30, 20)
-    print("Finito!")
 
     print(p_random.pf)
     print(p_random.evaluate())
 
-
-    """
-    # Rastgele portföy değeri
-    random_value = p_random.evaluate()
-
-    # Simulated Annealing portföy değeri
-    sa = SimulatedAnnealing(p_sa)
-    best_pf, best_score = sa.optimize()
-
-    sa_value = p_sa.evaluate()
-
-    # Grafik karşılaştırması
-    plt.figure(figsize=(10, 6))
-    plt.plot(random_value['Money'], label='Random Portfolio', linestyle='--')
-    plt.plot(sa_value['Money'], label='Simulated Annealing (Optimized)', linewidth=2)
-    plt.title('Portfolio Value Comparison')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Portfolio Value')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-    # Sonuçların Yazdırılması
-    print("\n--- Random Portfolio ---")
-    print(f"Final Value: {random_value.iloc[-1]['Money']:.2f}")
-    print(p_random.pf)
-
-    print("\n--- Simulated Annealing (Optimized Portfolio) ---")
-    print(f"Final Value: {best_score:.2f}")
-    print(best_pf)"
-    """

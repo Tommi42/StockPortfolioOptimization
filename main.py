@@ -109,6 +109,11 @@ with c1:
             k_modified_elephant = st.slider("Modified Elephant Rate", 0.1, 1.0, 0.9)
             k_crossover = st.slider("Crossover Rate", 0.1, 1.0, 0.5)
 
+        if portfolio_type == "Simulated Annealing":
+            sa_max_iter = st.slider("Max Iterations", 10, 1000, 200)
+            sa_temp = st.slider("Initial Temperature", 1.0, 500.0, 100.0)
+            sa_cooling = st.slider("Cooling Rate", 0.80, 0.99, 0.95)
+
         if st.button("Run", type="primary"):
 
             if len(selected_stocks) == 0:
@@ -119,13 +124,31 @@ with c1:
                 st.session_state['portfolio'] = Portfolio(1000, selected_stocks, start_date=start_date, end_date=end_date)
 
                 if portfolio_type == "Simulated Annealing":
-                    sa = SimulatedAnnealing(st.session_state['portfolio'])
-                    best_pf, _ = sa.optimize()
-                    st.session_state['sa_portfolio'] = Portfolio(
-                        1000, selected_stocks, start_date=start_date, end_date=end_date
+                    st.session_state['sa_portfolio'] = Portfolio(1000, selected_stocks, start_date, end_date)
+                    sa = SimulatedAnnealing(
+                        st.session_state['sa_portfolio'],
+                        initial_temp=sa_temp,
+                        cooling_rate=sa_cooling,
+                        max_iter=sa_max_iter
                     )
-                    st.session_state['sa_portfolio'].pf = best_pf  # ✅ Ensure SA portfolio is updated
 
+                    progress_text = "Working on it... (Simulated Annealing ❄️)"
+                    with c2: my_bar = st.progress(0, text=progress_text)
+                    temp_best = []
+                    percent_complete = 0
+                    with c2:
+                        print("Starting Simulated Annealing")
+                        with st.empty():
+                            for _ in range(sa_max_iter):
+                                sa.step()  # Perform a single SA iteration
+                                temp_best.append(sa.best_pf)
+                                percent_complete += 1 / sa_max_iter
+                                my_bar.progress(percent_complete, text=progress_text)
+                                st.session_state['sa_portfolio'].pf = sa.best_pf
+                    DataView(portfolio_type)
+            
+                    st.success("Simulated Annealing optimization completed!")
+                    
                 elif portfolio_type == "Genetic Algorithm":
                     st.session_state['ga_portfolio'] = Portfolio(
                         1000, selected_stocks, start_date=start_date, end_date=end_date)
