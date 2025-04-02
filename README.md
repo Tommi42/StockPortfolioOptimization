@@ -13,6 +13,12 @@ Data used for the project [here](https://www.kaggle.com/datasets/ashbellett/aust
 
 ## Run
 
+To install all pip requirement:
+
+```sh
+pip install requirements.txt
+```
+
 To run, use:
 
 ```sh
