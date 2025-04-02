@@ -261,11 +261,11 @@ class SimulatedAnnealing(OptimizationAlgorithm):
             if self.T < 0.01:
                 break
 
-        self.portfolio.pf = best_pf
-        return best_pf, best_score
+            yield best_pf
+
 
 class HillClimbing(OptimizationAlgorithm):
-    def __init__(self, portfolio, iterations=1000, step_size=0.3):
+    def __init__(self, portfolio, iterations=100, step_size=0.3):
         super().__init__(portfolio)
         self.iterations = iterations
         self.step_size = step_size
@@ -278,17 +278,28 @@ class HillClimbing(OptimizationAlgorithm):
         block_size = np.random.randint(1, len(stocks) // 2 + 1)  # Block size between 1 and half the number of stocks
         block_stocks = np.random.choice(stocks, block_size, replace=False)
         block_vector = np.zeros(len(stocks))
+        print(block_vector)
         for stock in block_stocks:
             block_vector[stocks.index(stock)] = 1  # Set the block to 1
+
+
+        vector = np.zeros(self.portfolio.num_day)
+        length = random.randint(1, self.portfolio.num_day // 2)
+        start = np.random.randint(0, self.portfolio.num_day - length + 1)  # Punto iniziale casuale
+        vector[start:start + length] = 1
+
         
         # Apply a random change to the selected block
         change = np.random.uniform(-0.3, 0.3)  # Change allocation by ±0.3
+        change *= vector
         for stock in block_stocks:
             new_allocation[stock] = (new_allocation[stock] + change).clip(0, 1)  # Clip values to [0,1]
+
         
         # Normalize allocations to ensure they sum to 1
         new_allocation = new_allocation.div(new_allocation.sum(axis=1), axis=0)
         return new_allocation
+
 
     def optimize(self):
         current_pf = self.portfolio.pf.copy()
@@ -303,9 +314,7 @@ class HillClimbing(OptimizationAlgorithm):
                 best_pf = new_pf.copy()
                 best_eval = new_eval
                 current_pf = new_pf
-
-        self.portfolio.pf = best_pf
-        return best_pf, best_eval 
+                yield best_pf
 
 class TabuSearch(OptimizationAlgorithm):
 
@@ -369,8 +378,6 @@ class TabuSearch(OptimizationAlgorithm):
 
                 yield best_pf
                 
-        
-    
 if __name__ == '__main__':
     # Write here code for running without Stremlit UI
     pass
