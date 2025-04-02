@@ -24,7 +24,9 @@ To run, use:
 ```sh
 streamlit run main.py
 ```
+## Web version
 
+Web hosted version with streamlit cloud [here](https://stockportfoliooptimization.streamlit.app/)
 
 ## Implemented Algorithm
 
